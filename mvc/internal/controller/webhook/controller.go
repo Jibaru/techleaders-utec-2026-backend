@@ -4,12 +4,17 @@
 // resulting duplication is the punchline for extracting a service layer.
 package webhook
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+
+	"mvc-coffee-loyalty/internal/mail"
+)
 
 type Controller struct {
-	db *gorm.DB
+	db     *gorm.DB
+	mailer *mail.Sender
 }
 
-func NewController(db *gorm.DB) *Controller {
-	return &Controller{db: db}
+func NewController(db *gorm.DB, mailer *mail.Sender) *Controller {
+	return &Controller{db: db, mailer: mailer}
 }

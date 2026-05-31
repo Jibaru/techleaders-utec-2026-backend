@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
+	mailmock "hexagonal/internal/mail/mock"
 	"hexagonal/internal/repository"
 	customermock "hexagonal/internal/repository/customer/mock"
 	repomock "hexagonal/internal/repository/mock"
@@ -17,6 +18,7 @@ type testMocks struct {
 	Customers *customermock.Repository
 	Rewards   *rewardmock.Repository
 	Tx        *repomock.Transactor
+	Mailer    *mailmock.Sender
 }
 
 func newService(t *testing.T) (*rewardsvc.Service, *testMocks) {
@@ -24,8 +26,9 @@ func newService(t *testing.T) (*rewardsvc.Service, *testMocks) {
 		Customers: customermock.NewRepository(t),
 		Rewards:   rewardmock.NewRepository(t),
 		Tx:        repomock.NewTransactor(t),
+		Mailer:    mailmock.NewSender(t),
 	}
-	return rewardsvc.New(mocks.Customers, mocks.Rewards, mocks.Tx), mocks
+	return rewardsvc.New(mocks.Customers, mocks.Rewards, mocks.Tx, mocks.Mailer), mocks
 }
 
 func (m *testMocks) expectTxRun(ctx context.Context) {

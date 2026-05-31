@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
+	mailmock "hexagonal/internal/mail/mock"
 	"hexagonal/internal/repository"
 	customermock "hexagonal/internal/repository/customer/mock"
 	repomock "hexagonal/internal/repository/mock"
@@ -26,6 +27,7 @@ type testMocks struct {
 	Customers *customermock.Repository
 	Purchases *purchasemock.Repository
 	Tx        *repomock.Transactor
+	Mailer    *mailmock.Sender
 }
 
 func newService(t *testing.T) (*purchasesvc.Service, *testMocks) {
@@ -33,8 +35,9 @@ func newService(t *testing.T) (*purchasesvc.Service, *testMocks) {
 		Customers: customermock.NewRepository(t),
 		Purchases: purchasemock.NewRepository(t),
 		Tx:        repomock.NewTransactor(t),
+		Mailer:    mailmock.NewSender(t),
 	}
-	return purchasesvc.New(mocks.Customers, mocks.Purchases, mocks.Tx), mocks
+	return purchasesvc.New(mocks.Customers, mocks.Purchases, mocks.Tx, mocks.Mailer), mocks
 }
 
 // expectTxRun mocks Transactor.RunTx so the service's tx callback actually
@@ -47,4 +50,12 @@ func (m *testMocks) expectTxRun(ctx context.Context) {
 				Purchases: m.Purchases,
 			})
 		})
+}
+
+// expectAnyMail accepts any Send call. Use in tests where the email content
+// is incidental to what's being verified.
+func (m *testMocks) expectAnyMail() {
+	m.Mailer.EXPECT().
+		Send(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil).Maybe()
 }

@@ -17,6 +17,9 @@ import (
 	"hexagonal/internal/controller/tier"
 	"hexagonal/internal/controller/webhook"
 	"hexagonal/internal/db"
+	"hexagonal/internal/mail"
+	mailnoop "hexagonal/internal/mail/noop"
+	mailsmtp "hexagonal/internal/mail/smtp"
 	"hexagonal/internal/model"
 	repogorm "hexagonal/internal/repository/gorm"
 	customergorm "hexagonal/internal/repository/customer/gorm"
@@ -54,17 +57,27 @@ func main() {
 	}
 	logger.Info("schema migrated")
 
-	// Composition root: GORM adapters → Transactor → services → controllers.
-	// This is the ONLY place that knows GORM exists. Swap these three lines to
-	// an in-memory or different-database adapter and nothing else needs to change.
+	// Composition root: pick the adapters for every outbound port, then wire
+	// services. This is the ONLY place that knows which adapters are real —
+	// services depend purely on the ports defined in internal/repository and
+	// internal/mail.
 	customerRepo := customergorm.New(gormDB)
 	purchaseRepo := purchasegorm.New(gormDB)
 	rewardRepo := rewardgorm.New(gormDB)
 	transactor := repogorm.NewTransactor(gormDB, customerRepo, purchaseRepo, rewardRepo)
 
+	var mailer mail.Sender
+	if cfg.Mail.Host == "" {
+		mailer = mailnoop.New()
+		logger.Info("smtp not configured; using noop mail sender")
+	} else {
+		mailer = mailsmtp.New(cfg.Mail.Host, cfg.Mail.Port, cfg.Mail.User, cfg.Mail.Password, cfg.Mail.From)
+		logger.Info("smtp configured", "host", cfg.Mail.Host, "from", cfg.Mail.From)
+	}
+
 	customerService := customersvc.New(customerRepo, purchaseRepo, rewardRepo)
-	purchaseService := purchasesvc.New(customerRepo, purchaseRepo, transactor)
-	rewardService := rewardsvc.New(customerRepo, rewardRepo, transactor)
+	purchaseService := purchasesvc.New(customerRepo, purchaseRepo, transactor, mailer)
+	rewardService := rewardsvc.New(customerRepo, rewardRepo, transactor, mailer)
 
 	handler := router.New(router.Controllers{
 		Customer: customer.NewController(customerService),

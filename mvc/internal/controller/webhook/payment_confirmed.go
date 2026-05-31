@@ -2,6 +2,8 @@ package webhook
 
 import (
 	"errors"
+	"fmt"
+	"log/slog"
 	"math"
 	"net/http"
 	"strings"
@@ -68,9 +70,9 @@ func (c *Controller) PaymentConfirmed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// --- duplicated from purchase.Create ---
-	currentTier := model.TierForPoints(customer.Points)
+	previousTier := model.TierForPoints(customer.Points)
 	dollars := float64(req.AmountCents) / 100.0
-	pointsEarned := int(math.Floor(dollars * currentTier.Multiplier))
+	pointsEarned := int(math.Floor(dollars * previousTier.Multiplier))
 
 	createdAt := req.OccurredAt
 	if createdAt.IsZero() {
@@ -109,6 +111,28 @@ func (c *Controller) PaymentConfirmed(w http.ResponseWriter, r *http.Request) {
 		}
 		httpx.WriteError(w, http.StatusInternalServerError, "could not record purchase")
 		return
+	}
+
+	// --- ALSO duplicated from purchase.Create: same receipt + tier upgrade emails ---
+	newTier := model.TierForPoints(customer.Points)
+	receiptSubject := "Thanks for your purchase"
+	receiptBody := fmt.Sprintf(
+		"Hi %s,\n\nThanks for your $%.2f purchase. You earned %d points!\nYour balance is now %d points (%s).\n\n— Tu Café",
+		customer.Name, dollars, pointsEarned, customer.Points, newTier.Name,
+	)
+	if err := c.mailer.Send(customer.Email, receiptSubject, receiptBody); err != nil {
+		slog.Error("send purchase receipt", "err", err, "customer_id", customer.ID)
+	}
+
+	if previousTier.Name != newTier.Name {
+		tierSubject := fmt.Sprintf("Welcome to %s!", newTier.Name)
+		tierBody := fmt.Sprintf(
+			"Hi %s,\n\nCongratulations — you've reached our %s tier!\nYou now earn points at %.2fx on every purchase.\n\n— Tu Café",
+			customer.Name, newTier.Name, newTier.Multiplier,
+		)
+		if err := c.mailer.Send(customer.Email, tierSubject, tierBody); err != nil {
+			slog.Error("send tier upgrade", "err", err, "customer_id", customer.ID)
+		}
 	}
 
 	httpx.WriteJSON(w, http.StatusAccepted, webhookview.AcceptedResponse{

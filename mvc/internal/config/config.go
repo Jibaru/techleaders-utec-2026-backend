@@ -10,6 +10,7 @@ import (
 type Config struct {
 	HTTPPort string
 	DB       DBConfig
+	Mail     MailConfig
 }
 
 type DBConfig struct {
@@ -19,6 +20,15 @@ type DBConfig struct {
 	Password string
 	Name     string
 	SSLMode  string
+}
+
+// MailConfig is optional. If Host is empty the SMTP sender becomes a no-op.
+type MailConfig struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	From     string
 }
 
 func Load() (Config, error) {
@@ -33,6 +43,13 @@ func Load() (Config, error) {
 			Password: mustenv("DB_PASSWORD"),
 			Name:     mustenv("DB_NAME"),
 			SSLMode:  getenv("DB_SSLMODE", "disable"),
+		},
+		Mail: MailConfig{
+			Host:     getenv("SMTP_HOST", ""),
+			Port:     getenv("SMTP_PORT", "587"),
+			User:     getenv("SMTP_USER", ""),
+			Password: getenv("SMTP_PASSWORD", ""),
+			From:     getenv("MAIL_FROM", "coffee-loyalty@example.com"),
 		},
 	}
 

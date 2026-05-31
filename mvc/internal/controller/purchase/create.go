@@ -2,6 +2,8 @@ package purchase
 
 import (
 	"errors"
+	"fmt"
+	"log/slog"
 	"math"
 	"net/http"
 	"time"
@@ -70,6 +72,28 @@ func (c *Controller) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newTier := model.TierForPoints(customer.Points)
+
+	// Send the purchase receipt. Log-and-continue on failure: the DB write
+	// already committed, so a flaky SMTP run shouldn't fail the request.
+	receiptSubject := "Thanks for your purchase"
+	receiptBody := fmt.Sprintf(
+		"Hi %s,\n\nThanks for your $%.2f purchase. You earned %d points!\nYour balance is now %d points (%s).\n\n— Tu Café",
+		customer.Name, dollars, pointsEarned, customer.Points, newTier.Name,
+	)
+	if err := c.mailer.Send(customer.Email, receiptSubject, receiptBody); err != nil {
+		slog.Error("send purchase receipt", "err", err, "customer_id", customer.ID)
+	}
+
+	if previousTier.Name != newTier.Name {
+		tierSubject := fmt.Sprintf("Welcome to %s!", newTier.Name)
+		tierBody := fmt.Sprintf(
+			"Hi %s,\n\nCongratulations — you've reached our %s tier!\nYou now earn points at %.2fx on every purchase.\n\n— Tu Café",
+			customer.Name, newTier.Name, newTier.Multiplier,
+		)
+		if err := c.mailer.Send(customer.Email, tierSubject, tierBody); err != nil {
+			slog.Error("send tier upgrade", "err", err, "customer_id", customer.ID)
+		}
+	}
 
 	httpx.WriteJSON(w, http.StatusCreated, purchaseview.RecordedResponse{
 		Purchase:     purchaseview.NewResponse(purchase),

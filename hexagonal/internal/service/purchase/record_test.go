@@ -2,6 +2,7 @@ package purchase_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -20,12 +21,15 @@ func TestService_Record(t *testing.T) {
 		svc, mocks := newService(t)
 		ctx := context.Background()
 		customerID := uuid.New()
-		customer := model.Customer{ID: customerID, Points: 100} // Bronze
+		customer := model.Customer{ID: customerID, Email: "ana@example.com", Points: 100} // Bronze
 
 		mocks.Customers.EXPECT().FindByID(ctx, customerID).Return(customer, nil)
 		mocks.expectTxRun(ctx)
 		mocks.Purchases.EXPECT().Save(ctx, mock.AnythingOfType("*model.Purchase")).Return(nil)
 		mocks.Customers.EXPECT().UpdatePoints(ctx, customerID, 150).Return(nil)
+		// Receipt email expected; no tier change so no upgrade email.
+		mocks.Mailer.EXPECT().Send(ctx, "ana@example.com",
+			mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil).Once()
 
 		out, err := svc.Record(ctx, purchasesvc.RecordInput{
 			CustomerID:  customerID,
@@ -38,16 +42,24 @@ func TestService_Record(t *testing.T) {
 		assert.False(t, out.Duplicate)
 	})
 
-	t.Run("silver multiplier kicks in and tier upgrade is reported", func(t *testing.T) {
+	t.Run("tier upgrade triggers both a receipt and a tier-upgrade email", func(t *testing.T) {
 		svc, mocks := newService(t)
 		ctx := context.Background()
 		customerID := uuid.New()
-		customer := model.Customer{ID: customerID, Points: 450} // Bronze, about to cross to Silver
+		customer := model.Customer{ID: customerID, Email: "bruno@example.com", Points: 450} // Bronze, crossing to Silver
 
 		mocks.Customers.EXPECT().FindByID(ctx, customerID).Return(customer, nil)
 		mocks.expectTxRun(ctx)
 		mocks.Purchases.EXPECT().Save(ctx, mock.AnythingOfType("*model.Purchase")).Return(nil)
 		mocks.Customers.EXPECT().UpdatePoints(ctx, customerID, 550).Return(nil) // 450 + 100
+		// Two emails: receipt + tier upgrade. Capture the subjects so we can verify.
+		var subjects []string
+		mocks.Mailer.EXPECT().Send(ctx, "bruno@example.com",
+			mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+			RunAndReturn(func(_ context.Context, _, subject, _ string) error {
+				subjects = append(subjects, subject)
+				return nil
+			}).Times(2)
 
 		out, err := svc.Record(ctx, purchasesvc.RecordInput{
 			CustomerID:  customerID,
@@ -57,6 +69,28 @@ func TestService_Record(t *testing.T) {
 		assert.Equal(t, 100, out.Purchase.PointsEarned)
 		assert.Equal(t, "Bronze", out.PreviousTier.Name)
 		assert.Equal(t, "Silver", out.NewTier.Name)
+		assert.Equal(t, []string{"Thanks for your purchase", "Welcome to Silver!"}, subjects)
+	})
+
+	t.Run("email send failure does not fail the request", func(t *testing.T) {
+		svc, mocks := newService(t)
+		ctx := context.Background()
+		customerID := uuid.New()
+		customer := model.Customer{ID: customerID, Email: "ana@example.com", Points: 0}
+
+		mocks.Customers.EXPECT().FindByID(ctx, customerID).Return(customer, nil)
+		mocks.expectTxRun(ctx)
+		mocks.Purchases.EXPECT().Save(ctx, mock.AnythingOfType("*model.Purchase")).Return(nil)
+		mocks.Customers.EXPECT().UpdatePoints(ctx, customerID, 50).Return(nil)
+		mocks.Mailer.EXPECT().Send(ctx, "ana@example.com",
+			mock.AnythingOfType("string"), mock.AnythingOfType("string")).
+			Return(errors.New("smtp: connection refused"))
+
+		_, err := svc.Record(ctx, purchasesvc.RecordInput{
+			CustomerID:  customerID,
+			AmountCents: 5000,
+		})
+		require.NoError(t, err, "purchase should commit even if email send fails")
 	})
 
 	t.Run("invalid amount rejects before any repo call", func(t *testing.T) {
@@ -170,6 +204,7 @@ func TestService_Record(t *testing.T) {
 				return nil
 			})
 		mocks.Customers.EXPECT().UpdatePoints(ctx, customerID, mock.Anything).Return(nil)
+		mocks.expectAnyMail()
 
 		_, err := svc.Record(ctx, purchasesvc.RecordInput{
 			CustomerID:  customerID,

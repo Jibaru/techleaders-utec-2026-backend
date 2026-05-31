@@ -17,6 +17,7 @@ import (
 	"mvc-service-repo/internal/controller/tier"
 	"mvc-service-repo/internal/controller/webhook"
 	"mvc-service-repo/internal/db"
+	"mvc-service-repo/internal/mail"
 	"mvc-service-repo/internal/model"
 	customerrepo "mvc-service-repo/internal/repository/customer"
 	purchaserepo "mvc-service-repo/internal/repository/purchase"
@@ -53,14 +54,21 @@ func main() {
 	}
 	logger.Info("schema migrated")
 
+	mailer := mail.NewSender(cfg.Mail.Host, cfg.Mail.Port, cfg.Mail.User, cfg.Mail.Password, cfg.Mail.From)
+	if cfg.Mail.Host == "" {
+		logger.Info("smtp not configured; emails will be logged but not sent")
+	} else {
+		logger.Info("smtp configured", "host", cfg.Mail.Host, "from", cfg.Mail.From)
+	}
+
 	// Composition root: repos → services → controllers.
 	customerRepo := customerrepo.New(gormDB)
 	purchaseRepo := purchaserepo.New(gormDB)
 	rewardRepo := rewardrepo.New(gormDB)
 
 	customerService := customersvc.New(customerRepo, purchaseRepo, rewardRepo)
-	purchaseService := purchasesvc.New(gormDB, customerRepo, purchaseRepo)
-	rewardService := rewardsvc.New(gormDB, customerRepo, rewardRepo)
+	purchaseService := purchasesvc.New(gormDB, customerRepo, purchaseRepo, mailer)
+	rewardService := rewardsvc.New(gormDB, customerRepo, rewardRepo, mailer)
 
 	handler := router.New(router.Controllers{
 		Customer: customer.NewController(customerService),

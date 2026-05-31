@@ -2,6 +2,8 @@ package reward
 
 import (
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -70,6 +72,15 @@ func (c *Controller) Redeem(w http.ResponseWriter, r *http.Request) {
 		Update("points", customer.Points).Error; err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, "could not update customer points")
 		return
+	}
+
+	subject := "Your reward is ready"
+	body := fmt.Sprintf(
+		"Hi %s,\n\nYou redeemed a %s for %d points.\nYour remaining balance is %d points.\n\n— Tu Café",
+		customer.Name, rewardType, cost, customer.Points,
+	)
+	if err := c.mailer.Send(customer.Email, subject, body); err != nil {
+		slog.Error("send reward confirmation", "err", err, "customer_id", customer.ID)
 	}
 
 	httpx.WriteJSON(w, http.StatusCreated, rewardview.RedeemedResponse{

@@ -37,3 +37,11 @@ packages:
       filename: "{{.InterfaceName | snakecase}}.go"
       pkgname: "mock"
       structname: "{{.InterfaceName}}"
+  hexagonal/internal/mail:
+    interfaces:
+      Sender:
+    config:
+      dir: "{{.InterfaceDir}}/mock"
+      filename: "{{.InterfaceName | snakecase}}.go"
+      pkgname: "mock"
+      structname: "{{.InterfaceName}}"

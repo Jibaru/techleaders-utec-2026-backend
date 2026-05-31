@@ -2,11 +2,13 @@ package reward
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"mvc-service-repo/internal/mail"
 	"mvc-service-repo/internal/model"
 )
 
@@ -64,5 +66,12 @@ func (s *Service) Redeem(ctx context.Context, customerID uuid.UUID, rewardType m
 	if err != nil {
 		return RedeemResult{}, err
 	}
+
+	// Send the redemption confirmation. Log-and-continue on failure.
+	subject, body := mail.RewardRedeemed(result.Customer, rewardType, cost, result.RemainingPoints)
+	if err := s.mailer.Send(result.Customer.Email, subject, body); err != nil {
+		slog.Error("send reward confirmation", "err", err, "customer_id", result.Customer.ID)
+	}
+
 	return result, nil
 }

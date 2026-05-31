@@ -3,6 +3,7 @@ package purchase
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"math"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"mvc-service-repo/internal/mail"
 	"mvc-service-repo/internal/model"
 	"mvc-service-repo/internal/validate"
 )
@@ -128,6 +130,21 @@ func (s *Service) Record(ctx context.Context, in RecordInput) (RecordResult, err
 	}
 
 	newTier := model.TierForPoints(customer.Points)
+
+	// Side-effects: send the purchase receipt and (if applicable) the tier
+	// upgrade email. Log-and-continue on send failures — the DB has already
+	// committed, so a flaky SMTP shouldn't fail the call.
+	subject, body := mail.PurchaseReceipt(customer, in.AmountCents, pointsEarned, newTier)
+	if err := s.mailer.Send(customer.Email, subject, body); err != nil {
+		slog.Error("send purchase receipt", "err", err, "customer_id", customer.ID)
+	}
+	if previousTier.Name != newTier.Name {
+		subject, body := mail.TierUpgrade(customer, newTier)
+		if err := s.mailer.Send(customer.Email, subject, body); err != nil {
+			slog.Error("send tier upgrade", "err", err, "customer_id", customer.ID)
+		}
+	}
+
 	return RecordResult{
 		Purchase:     purchase,
 		Customer:     customer,

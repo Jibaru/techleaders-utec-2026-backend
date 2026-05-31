@@ -17,6 +17,7 @@ import (
 	"mvc-coffee-loyalty/internal/controller/tier"
 	"mvc-coffee-loyalty/internal/controller/webhook"
 	"mvc-coffee-loyalty/internal/db"
+	"mvc-coffee-loyalty/internal/mail"
 	"mvc-coffee-loyalty/internal/model"
 	"mvc-coffee-loyalty/internal/router"
 )
@@ -47,12 +48,19 @@ func main() {
 	}
 	logger.Info("schema migrated")
 
+	mailer := mail.NewSender(cfg.Mail.Host, cfg.Mail.Port, cfg.Mail.User, cfg.Mail.Password, cfg.Mail.From)
+	if cfg.Mail.Host == "" {
+		logger.Info("smtp not configured; emails will be logged but not sent")
+	} else {
+		logger.Info("smtp configured", "host", cfg.Mail.Host, "from", cfg.Mail.From)
+	}
+
 	handler := router.New(router.Controllers{
 		Customer: customer.NewController(gormDB),
-		Purchase: purchase.NewController(gormDB),
-		Reward:   reward.NewController(gormDB),
+		Purchase: purchase.NewController(gormDB, mailer),
+		Reward:   reward.NewController(gormDB, mailer),
 		Tier:     tier.NewController(),
-		Webhook:  webhook.NewController(gormDB),
+		Webhook:  webhook.NewController(gormDB, mailer),
 	})
 	handler = requestLogger(logger)(recoverer(logger)(handler))
 

@@ -3,12 +3,14 @@ package purchase
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"math"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"hexagonal/internal/mail"
 	"hexagonal/internal/model"
 	"hexagonal/internal/repository"
 	"hexagonal/internal/validate"
@@ -125,6 +127,21 @@ func (s *Service) Record(ctx context.Context, in RecordInput) (RecordResult, err
 	}
 
 	newTier := model.TierForPoints(customer.Points)
+
+	// Side-effects: receipt + (if applicable) tier upgrade emails.
+	// Log-and-continue on send failures so a flaky SMTP doesn't fail the call
+	// after the DB transaction already committed.
+	subject, body := mail.PurchaseReceipt(customer, in.AmountCents, pointsEarned, newTier)
+	if err := s.mailer.Send(ctx, customer.Email, subject, body); err != nil {
+		slog.ErrorContext(ctx, "send purchase receipt", "err", err, "customer_id", customer.ID)
+	}
+	if previousTier.Name != newTier.Name {
+		subject, body := mail.TierUpgrade(customer, newTier)
+		if err := s.mailer.Send(ctx, customer.Email, subject, body); err != nil {
+			slog.ErrorContext(ctx, "send tier upgrade", "err", err, "customer_id", customer.ID)
+		}
+	}
+
 	return RecordResult{
 		Purchase:     purchase,
 		Customer:     customer,
