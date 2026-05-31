@@ -1,0 +1,47 @@
+# Mockery v3 config. Run `make mocks` (or `mockery`) to regenerate.
+# Mocks are written next to each interface, in a `mock/` sub-package, so the
+# service tests can import them without colliding with the interface package.
+template: testify
+formatter: goimports
+log-level: info
+packages:
+  hexagonal-modular/internal/shared/repository:
+    interfaces:
+      Transactor:
+    config:
+      dir: "{{.InterfaceDir}}/mock"
+      filename: "{{.InterfaceName | snakecase}}.go"
+      pkgname: "mock"
+      structname: "{{.InterfaceName}}"
+  hexagonal-modular/internal/customer/repository:
+    interfaces:
+      Repository:
+    config:
+      dir: "{{.InterfaceDir}}/mock"
+      filename: "{{.InterfaceName | snakecase}}.go"
+      pkgname: "mock"
+      structname: "{{.InterfaceName}}"
+  hexagonal-modular/internal/purchase/repository:
+    interfaces:
+      Repository:
+    config:
+      dir: "{{.InterfaceDir}}/mock"
+      filename: "{{.InterfaceName | snakecase}}.go"
+      pkgname: "mock"
+      structname: "{{.InterfaceName}}"
+  hexagonal-modular/internal/reward/repository:
+    interfaces:
+      Repository:
+    config:
+      dir: "{{.InterfaceDir}}/mock"
+      filename: "{{.InterfaceName | snakecase}}.go"
+      pkgname: "mock"
+      structname: "{{.InterfaceName}}"
+  hexagonal-modular/internal/shared/mail:
+    interfaces:
+      Sender:
+    config:
+      dir: "{{.InterfaceDir}}/mock"
+      filename: "{{.InterfaceName | snakecase}}.go"
+      pkgname: "mock"
+      structname: "{{.InterfaceName}}"
