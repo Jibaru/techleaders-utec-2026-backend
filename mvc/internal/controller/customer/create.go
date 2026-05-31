@@ -23,8 +23,12 @@ func (c *Controller) Create(w http.ResponseWriter, r *http.Request) {
 
 	name := strings.TrimSpace(req.Name)
 	email := strings.ToLower(strings.TrimSpace(req.Email))
-	if name == "" || email == "" {
-		httpx.WriteError(w, http.StatusBadRequest, "name and email are required")
+	if err := httpx.ValidateName(name); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := httpx.ValidateEmail(email); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 

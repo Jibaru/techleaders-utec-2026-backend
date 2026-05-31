@@ -28,16 +28,16 @@ func (c *Controller) Update(w http.ResponseWriter, r *http.Request) {
 	updates := map[string]any{}
 	if req.Name != nil {
 		name := strings.TrimSpace(*req.Name)
-		if name == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "name cannot be empty")
+		if err := httpx.ValidateName(name); err != nil {
+			httpx.WriteError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		updates["name"] = name
 	}
 	if req.Email != nil {
 		email := strings.ToLower(strings.TrimSpace(*req.Email))
-		if email == "" {
-			httpx.WriteError(w, http.StatusBadRequest, "email cannot be empty")
+		if err := httpx.ValidateEmail(email); err != nil {
+			httpx.WriteError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		updates["email"] = email

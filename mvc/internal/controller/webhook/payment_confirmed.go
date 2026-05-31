@@ -25,8 +25,16 @@ func (c *Controller) PaymentConfirmed(w http.ResponseWriter, r *http.Request) {
 
 	externalID := strings.TrimSpace(req.ExternalPaymentID)
 	email := strings.ToLower(strings.TrimSpace(req.CustomerEmail))
-	if externalID == "" || email == "" || req.AmountCents <= 0 {
-		httpx.WriteError(w, http.StatusBadRequest, "external_payment_id, customer_email and positive amount_cents are required")
+	if err := httpx.ValidateExternalID(externalID); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := httpx.ValidateEmail(email); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := httpx.ValidateAmount(req.AmountCents); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 

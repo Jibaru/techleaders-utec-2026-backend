@@ -27,8 +27,8 @@ func (c *Controller) Create(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.AmountCents <= 0 {
-		httpx.WriteError(w, http.StatusBadRequest, "amount must be positive")
+	if err := httpx.ValidateAmount(req.AmountCents); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
