@@ -1,0 +1,39 @@
+# Mockery v3 config. Run `make mocks` (or `mockery`) to regenerate.
+# Mocks are written next to each interface, in a `mock/` sub-package, so the
+# service tests can import them without colliding with the interface package.
+template: testify
+formatter: goimports
+log-level: info
+packages:
+  hexagonal/internal/repository:
+    interfaces:
+      Transactor:
+    config:
+      dir: "{{.InterfaceDir}}/mock"
+      filename: "{{.InterfaceName | snakecase}}.go"
+      pkgname: "mock"
+      structname: "{{.InterfaceName}}"
+  hexagonal/internal/repository/customer:
+    interfaces:
+      Repository:
+    config:
+      dir: "{{.InterfaceDir}}/mock"
+      filename: "{{.InterfaceName | snakecase}}.go"
+      pkgname: "mock"
+      structname: "{{.InterfaceName}}"
+  hexagonal/internal/repository/purchase:
+    interfaces:
+      Repository:
+    config:
+      dir: "{{.InterfaceDir}}/mock"
+      filename: "{{.InterfaceName | snakecase}}.go"
+      pkgname: "mock"
+      structname: "{{.InterfaceName}}"
+  hexagonal/internal/repository/reward:
+    interfaces:
+      Repository:
+    config:
+      dir: "{{.InterfaceDir}}/mock"
+      filename: "{{.InterfaceName | snakecase}}.go"
+      pkgname: "mock"
+      structname: "{{.InterfaceName}}"

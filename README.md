@@ -8,4 +8,5 @@ Architecture-pattern examples for the Tech Leaders talk. Each subfolder is a sel
 |---|---------|--------|------|
 | 1 | MVC | [mvc/](mvc/) | Baseline: fat controllers do HTTP + business + DB all in one method |
 | 2 | MVC + Service + Repository | [mvc-service-repo/](mvc-service-repo/) | Extracts business logic into services, GORM queries into repositories |
+| 3 | Hexagonal (ports & adapters) | [hexagonal/](hexagonal/) | Services depend on repository *interfaces*; GORM is a swappable adapter; unit tests against mockery-generated mocks |
 
