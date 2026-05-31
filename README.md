@@ -4,7 +4,8 @@ Architecture-pattern examples for the Tech Leaders talk. Each subfolder is a sel
 
 ## Examples
 
-| Pattern | Folder | Domain |
-|---------|--------|--------|
-| MVC | [mvc/](mvc/) | Coffee Shop Loyalty Program (customers, purchases, tier-based points, rewards) |
+| # | Pattern | Folder | Adds |
+|---|---------|--------|------|
+| 1 | MVC | [mvc/](mvc/) | Baseline: fat controllers do HTTP + business + DB all in one method |
+| 2 | MVC + Service + Repository | [mvc-service-repo/](mvc-service-repo/) | Extracts business logic into services, GORM queries into repositories |
 
